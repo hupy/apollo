@@ -10,8 +10,7 @@ import com.ctrip.framework.apollo.common.exception.BadRequestException;
 import com.ctrip.framework.apollo.common.exception.NotFoundException;
 import com.ctrip.framework.apollo.common.utils.BeanUtils;
 import com.ctrip.framework.apollo.core.utils.StringUtils;
-
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,22 +22,26 @@ import java.util.Map;
 @Service
 public class ItemService {
 
-  @Autowired
-  private ItemRepository itemRepository;
+  private final ItemRepository itemRepository;
+  private final NamespaceService namespaceService;
+  private final AuditService auditService;
+  private final BizConfig bizConfig;
 
-  @Autowired
-  private NamespaceService namespaceService;
-
-  @Autowired
-  private AuditService auditService;
-
-  @Autowired
-  private BizConfig bizConfig;
+  public ItemService(
+      final ItemRepository itemRepository,
+      final @Lazy NamespaceService namespaceService,
+      final AuditService auditService,
+      final BizConfig bizConfig) {
+    this.itemRepository = itemRepository;
+    this.namespaceService = namespaceService;
+    this.auditService = auditService;
+    this.bizConfig = bizConfig;
+  }
 
 
   @Transactional
   public Item delete(long id, String operator) {
-    Item item = itemRepository.findOne(id);
+    Item item = itemRepository.findById(id).orElse(null);
     if (item == null) {
       throw new IllegalArgumentException("item not exist. ID:" + id);
     }
@@ -81,11 +84,27 @@ public class ItemService {
   }
 
   public Item findOne(long itemId) {
-    Item item = itemRepository.findOne(itemId);
+    Item item = itemRepository.findById(itemId).orElse(null);
     return item;
   }
 
-  public List<Item> findItems(Long namespaceId) {
+  public List<Item> findItemsWithoutOrdered(Long namespaceId) {
+    List<Item> items = itemRepository.findByNamespaceId(namespaceId);
+    if (items == null) {
+      return Collections.emptyList();
+    }
+    return items;
+  }
+
+  public List<Item> findItemsWithoutOrdered(String appId, String clusterName, String namespaceName) {
+    Namespace namespace = namespaceService.findOne(appId, clusterName, namespaceName);
+    if (namespace != null) {
+      return findItemsWithoutOrdered(namespace.getId());
+    }
+    return Collections.emptyList();
+  }
+
+  public List<Item> findItemsWithOrdered(Long namespaceId) {
     List<Item> items = itemRepository.findByNamespaceIdOrderByLineNumAsc(namespaceId);
     if (items == null) {
       return Collections.emptyList();
@@ -93,13 +112,12 @@ public class ItemService {
     return items;
   }
 
-  public List<Item> findItems(String appId, String clusterName, String namespaceName) {
+  public List<Item> findItemsWithOrdered(String appId, String clusterName, String namespaceName) {
     Namespace namespace = namespaceService.findOne(appId, clusterName, namespaceName);
     if (namespace != null) {
-      return findItems(namespace.getId());
-    } else {
-      return Collections.emptyList();
+      return findItemsWithOrdered(namespace.getId());
     }
+    return Collections.emptyList();
   }
 
   public List<Item> findItemsModifiedAfterDate(long namespaceId, Date date) {
@@ -130,7 +148,7 @@ public class ItemService {
   @Transactional
   public Item update(Item item) {
     checkItemValueLength(item.getNamespaceId(), item.getValue());
-    Item managedItem = itemRepository.findOne(item.getId());
+    Item managedItem = itemRepository.findById(item.getId()).orElse(null);
     BeanUtils.copyEntityProperties(item, managedItem);
     managedItem = itemRepository.save(managedItem);
 

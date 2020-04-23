@@ -1,17 +1,17 @@
 package com.ctrip.framework.apollo.spring;
 
-import com.ctrip.framework.apollo.Config;
-import com.ctrip.framework.apollo.core.ConfigConsts;
-
-import org.junit.Test;
-import org.springframework.beans.factory.xml.XmlBeanDefinitionStoreException;
-import org.springframework.context.support.ClassPathXmlApplicationContext;
-
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import org.junit.Test;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionStoreException;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import com.ctrip.framework.apollo.Config;
+import com.ctrip.framework.apollo.core.ConfigConsts;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
@@ -90,6 +90,24 @@ public class XmlConfigPlaceholderTest extends AbstractSpringIntegrationTest {
     mockConfig(FX_APOLLO_NAMESPACE, fxApollo);
 
     check("spring/XmlConfigPlaceholderTest3.xml", someTimeout, someBatch);
+  }
+
+  @Test
+  public void testMultiplePropertySourcesWithSameProperties2() throws Exception {
+    int someTimeout = 1000;
+    int anotherTimeout = someTimeout + 1;
+    int someBatch = 2000;
+
+    Config application = mock(Config.class);
+    when(application.getProperty(eq(TIMEOUT_PROPERTY), anyString())).thenReturn(String.valueOf(someTimeout));
+    when(application.getProperty(eq(BATCH_PROPERTY), anyString())).thenReturn(String.valueOf(someBatch));
+    mockConfig(ConfigConsts.NAMESPACE_APPLICATION, application);
+
+    Config fxApollo = mock(Config.class);
+    when(fxApollo.getProperty(eq(TIMEOUT_PROPERTY), anyString())).thenReturn(String.valueOf(anotherTimeout));
+    mockConfig(FX_APOLLO_NAMESPACE, fxApollo);
+
+    check("spring/XmlConfigPlaceholderTest6.xml", anotherTimeout, someBatch);
   }
 
   @Test

@@ -1,7 +1,13 @@
 package com.ctrip.framework.apollo.internals;
 
-import com.ctrip.framework.apollo.core.ConfigConsts;
-import com.ctrip.framework.apollo.core.enums.ConfigFileFormat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.when;
+
+import com.ctrip.framework.apollo.enums.ConfigSourceType;
+import java.util.Properties;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -9,13 +15,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import java.util.Properties;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.when;
+import com.ctrip.framework.apollo.core.ConfigConsts;
+import com.ctrip.framework.apollo.core.enums.ConfigFileFormat;
 
 /**
  * @author Jason Song(song_s@ctrip.com)
@@ -25,6 +26,8 @@ public class JsonConfigFileTest {
   private String someNamespace;
   @Mock
   private ConfigRepository configRepository;
+
+  private ConfigSourceType someSourceType;
 
   @Before
   public void setUp() throws Exception {
@@ -38,7 +41,10 @@ public class JsonConfigFileTest {
     String someValue = "someValue";
     someProperties.setProperty(key, someValue);
 
+    someSourceType = ConfigSourceType.LOCAL;
+
     when(configRepository.getConfig()).thenReturn(someProperties);
+    when(configRepository.getSourceType()).thenReturn(someSourceType);
 
     JsonConfigFile configFile = new JsonConfigFile(someNamespace, configRepository);
 
@@ -46,6 +52,7 @@ public class JsonConfigFileTest {
     assertEquals(someNamespace, configFile.getNamespace());
     assertTrue(configFile.hasContent());
     assertEquals(someValue, configFile.getContent());
+    assertEquals(someSourceType, configFile.getSourceType());
   }
 
   @Test
@@ -66,6 +73,7 @@ public class JsonConfigFileTest {
 
     assertFalse(configFile.hasContent());
     assertNull(configFile.getContent());
+    assertEquals(ConfigSourceType.NONE, configFile.getSourceType());
   }
 
   @Test
@@ -76,18 +84,26 @@ public class JsonConfigFileTest {
     String anotherValue = "anotherValue";
     someProperties.setProperty(key, someValue);
 
+    someSourceType = ConfigSourceType.LOCAL;
+
     when(configRepository.getConfig()).thenReturn(someProperties);
+    when(configRepository.getSourceType()).thenReturn(someSourceType);
 
     JsonConfigFile configFile = new JsonConfigFile(someNamespace, configRepository);
 
     assertEquals(someValue, configFile.getContent());
+    assertEquals(someSourceType, configFile.getSourceType());
 
     Properties anotherProperties = new Properties();
     anotherProperties.setProperty(key, anotherValue);
 
+    ConfigSourceType anotherSourceType = ConfigSourceType.REMOTE;
+    when(configRepository.getSourceType()).thenReturn(anotherSourceType);
+
     configFile.onRepositoryChange(someNamespace, anotherProperties);
 
     assertEquals(anotherValue, configFile.getContent());
+    assertEquals(anotherSourceType, configFile.getSourceType());
   }
 
   @Test
@@ -97,16 +113,21 @@ public class JsonConfigFileTest {
     String someValue = "someValue";
     someProperties.setProperty(key, someValue);
 
+    someSourceType = ConfigSourceType.LOCAL;
+
     when(configRepository.getConfig()).thenThrow(new RuntimeException("someError"));
+    when(configRepository.getSourceType()).thenReturn(someSourceType);
 
     JsonConfigFile configFile = new JsonConfigFile(someNamespace, configRepository);
 
     assertFalse(configFile.hasContent());
     assertNull(configFile.getContent());
+    assertEquals(ConfigSourceType.NONE, configFile.getSourceType());
 
     configFile.onRepositoryChange(someNamespace, someProperties);
 
     assertTrue(configFile.hasContent());
     assertEquals(someValue, configFile.getContent());
+    assertEquals(someSourceType, configFile.getSourceType());
   }
 }
